@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>点Pの座標ゲーム 完全版</title>
+<style>
+body{font-family:Meiryo,sans-serif;background:#f4f6f8;text-align:center;margin:20px}
+canvas{background:#fff;border:2px solid #333;max-width:100%;height:auto}
+.answer{font-size:22px;margin:14px 0}
+select,button{font-size:18px;padding:6px}
+button{padding:6px 16px}
+#message{min-height:60px;font-size:22px;font-weight:bold;margin:10px}
+.stats,.result{font-size:20px;margin-top:10px}
+</style>
+</head>
+<body>
+<h1>点Pの座標ゲーム（5問チャレンジ）</h1>
+<canvas id="graph" width="560" height="560"></canvas>
+<div class="answer">
+点Pの座標は<br>
+（ <select id="xAns"></select> ， <select id="yAns"></select> ）
+<button onclick="checkAnswer()">答える</button>
+</div>
+<div id="message"></div>
+<div class="stats">問題: <span id="count">0</span>/5 ｜ 正解数: <span id="correct">0</span> ｜ 正答率: <span id="rate">0.0</span>%</div>
+<div id="result" class="result"></div>
+<button id="retry" onclick="restart()" style="display:none">もう一度挑戦</button>
+<script>
+const canvas=document.getElementById('graph');
+const ctx=canvas.getContext('2d');
+const center=280, step=25, total=5;
+let answerX=0, answerY=0, count=0, correct=0, finished=false, startTime=Date.now();
+
+function fillSelect(id){
+ const s=document.getElementById(id);
+ for(let i=9;i>=-9;i--){
+  const o=document.createElement('option');
+  o.value=i; o.textContent=i;
+  if(i===0) o.selected=true;
+  s.appendChild(o);
+ }
+}
+fillSelect('xAns'); fillSelect('yAns');
+
+function line(a,b,c,d){ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke();}
+
+function draw(){
+ ctx.clearRect(0,0,560,560);
+ ctx.strokeStyle='#d6d6d6'; ctx.lineWidth=1;
+ for(let i=-9;i<=9;i++){
+   let p=center+i*step;
+   line(p,55,p,505); line(55,p,505,p);
+ }
+ ctx.strokeStyle='black'; ctx.lineWidth=2;
+ line(55,center,510,center);
+ line(center,505,center,50);
+ line(510,center,500,center-5); line(510,center,500,center+5);
+ line(center,50,center-5,60); line(center,50,center+5,60);
+ ctx.font='16px sans-serif';
+ ctx.fillText('X',520,center-10);
+ ctx.fillText('Y',center+12,40);
+ for(let i=-9;i<=9;i++){
+  if(i!==0){
+   ctx.fillText(i,center+i*step-5,center+20);
+   ctx.fillText(i,center+8,center-i*step+5);
+  }
+ }
+ ctx.fillText('O',center+6,center+18);
+ let px=center+answerX*step;
+ let py=center-answerY*step;
+ ctx.fillStyle='red';
+ ctx.beginPath(); ctx.arc(px,py,7,0,Math.PI*2); ctx.fill();
+ ctx.fillStyle='blue'; ctx.fillText('P',px+10,py-10);
+}
+
+function newQuestion(){
+ answerX=Math.floor(Math.random()*19)-9;
+ answerY=Math.floor(Math.random()*19)-9;
+ draw();
+}
+
+function checkAnswer(){
+ if(finished) return;
+ const x=Number(document.getElementById('xAns').value);
+ const y=Number(document.getElementById('yAns').value);
+ count++;
+ if(x===answerX && y===answerY){
+  correct++;
+  message.innerHTML='正解！<br>模範解答：P = ('+answerX+', '+answerY+')';
+  message.style.color='green';
+ }else{
+  message.innerHTML='不正解…<br>模範解答：P = ('+answerX+', '+answerY+')';
+  message.style.color='crimson';
+ }
+ document.getElementById('count').textContent=count;
+ document.getElementById('correct').textContent=correct;
+ document.getElementById('rate').textContent=(correct/count*100).toFixed(1);
+ xAns.value='0'; yAns.value='0';
+ if(count>=total){finishGame();} else {newQuestion();}
+}
+
+function finishGame(){
+ finished=true;
+ const sec=((Date.now()-startTime)/1000).toFixed(1);
+ const rate=(correct/total*100).toFixed(1);
+ let bonus='';
+ if(correct===5){
+   bonus='🎉 全問正解！すごい！！ 🎉';
+   if(sec<=30) bonus+='<br>⚡座標のスピードスター！！⚡';
+ }else if(correct===4){
+   bonus='おしい！あとひといき！';
+ }else if(correct>=2){
+   bonus='もっといける！';
+ }else if(correct===1){
+   bonus='1つできれば全部できるハズ！';
+ }else{
+   bonus='もう一度ルールを見直してみよう！';
+ }
+ document.getElementById('result').innerHTML='<b>結果</b><br>'+total+'問中 '+correct+'問正解<br>正答率 '+rate+'%<br>かかった時間 '+sec+'秒<br><br><b>'+bonus+'</b>';
+ document.getElementById('retry').style.display='inline-block';
+}
+
+function restart(){
+ count=0; correct=0; finished=false; startTime=Date.now();
+ document.getElementById('count').textContent='0';
+ document.getElementById('correct').textContent='0';
+ document.getElementById('rate').textContent='0.0';
+ document.getElementById('message').innerHTML='';
+ document.getElementById('result').innerHTML='';
+ document.getElementById('retry').style.display='none';
+ xAns.value='0'; yAns.value='0';
+ newQuestion();
+}
+newQuestion();
+</script>
+</body></html>
