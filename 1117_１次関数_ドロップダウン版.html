@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>1次関数グラフチャレンジ ドロップダウン版 Ver.1</title>
+<style>
+:root{--blue:#2563eb;--green:#15803d;--red:#dc2626;--purple:#7c3aed;--ink:#172033;--bg:#eef3f8}
+*{box-sizing:border-box}
+body{margin:0;padding:10px;background:var(--bg);font-family:Meiryo,"Hiragino Kaku Gothic ProN",sans-serif;text-align:center;color:var(--ink)}
+main{max-width:760px;margin:auto;background:#fff;padding:14px;border-radius:18px;box-shadow:0 8px 28px #1720331c}
+h1{font-size:clamp(23px,5vw,35px);margin:4px}
+.problem{font-size:clamp(21px,5vw,30px);font-weight:bold;margin:8px}
+.formula{color:var(--blue);font-size:1.22em}
+canvas{display:block;width:min(100%,600px);height:auto;margin:auto;border:2px solid #222;border-radius:8px;background:#fff}
+.answer-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:620px;margin:10px auto}
+.point-card{background:#f7f9fc;border:1px solid #cbd5e1;border-radius:12px;padding:11px;font-size:19px}
+.point-card strong{display:block;margin-bottom:7px}
+select{font:inherit;font-size:19px;padding:7px 8px;border:1px solid #94a3b8;border-radius:8px;background:#fff}
+button{font:inherit;font-size:18px;color:#fff;background:var(--blue);font-weight:bold;border:0;border-radius:9px;padding:10px 19px;margin:4px;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}.next{background:var(--purple)}.retry{background:var(--green)}
+#feedback{max-width:640px;min-height:98px;margin:10px auto;padding:11px;border-radius:12px;line-height:1.55}
+.ok{background:#ecfdf5;color:#166534;border:1px solid #86efac}.ng{background:#fff1f2;color:#9f1239;border:1px solid #fda4af}
+.legend{font-size:14px;color:#64748b}.stats{margin:10px}.paused{color:var(--purple);font-weight:bold}
+.result{max-width:620px;margin:14px auto;padding:16px;background:#f0f9ff;border:2px solid #7dd3fc;border-radius:14px;font-size:20px;line-height:1.65}
+.hidden{display:none!important}
+@media(max-width:560px){body{padding:5px}main{padding:8px}.answer-grid{grid-template-columns:1fr}.point-card{padding:8px}.stats{font-size:15px}#feedback{font-size:15px}}
+</style>
+</head>
+<body>
+<main>
+<h1>1次関数グラフチャレンジ</h1>
+<div class="problem">次の関数のグラフをかこう！<br><span id="formula" class="formula"></span></div>
+<canvas id="graph" width="600" height="600" aria-label="マイナス9から9までの座標平面"></canvas>
+<div class="answer-grid">
+ <div class="point-card"><strong>1つ目の点 A</strong>（ <select id="x1" aria-label="点Aのx座標"></select> ， <select id="y1" aria-label="点Aのy座標"></select> ）</div>
+ <div class="point-card"><strong>2つ目の点 B</strong>（ <select id="x2" aria-label="点Bのx座標"></select> ， <select id="y2" aria-label="点Bのy座標"></select> ）</div>
+</div>
+<button id="judge" type="button">グラフをかく・判定</button>
+<button id="next" class="next hidden" type="button">次の問題へ</button>
+<div class="legend">赤い線：選んだ直線 ／ 緑の点線：正しいグラフ</div>
+<div id="feedback" aria-live="polite"></div>
+<div class="stats">問題 <span id="qn">1</span>/3 ｜ 正解数 <span id="score">0</span> ｜ 正答率 <span id="rate">0.0</span>% ｜ 時間 <span id="time">0.0</span>秒 <span id="paused" class="paused hidden">（停止中）</span></div>
+<div id="result" class="result hidden"></div>
+<button id="retry" class="retry hidden" type="button">もう一度挑戦</button>
+</main>
+<script>
+(()=>{'use strict';
+const cv=document.getElementById('graph'),ctx=cv.getContext('2d');
+const N=3,min=-9,max=9,S=600,center=300,pad=55,unit=(S-pad*2)/18;
+const selects=['x1','y1','x2','y2'].map(id=>document.getElementById(id));
+let a=1,b=0,q=1,score=0,locked=false,finished=false,showAnswer=false,userPoints=null;
+let elapsed=0,since=0,running=false,timer=null;
+selects.forEach(s=>{for(let i=9;i>=-9;i--){const o=document.createElement('option');o.value=i;o.textContent=i;if(i===0)o.selected=true;s.appendChild(o)}});
+const X=v=>center+v*unit,Y=v=>center-v*unit;
+function line(x1,y1,x2,y2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function arrow(x1,y1,x2,y2){line(x1,y1,x2,y2);const z=Math.atan2(y2-y1,x2-x1),l=11;line(x2,y2,x2-l*Math.cos(z-.45),y2-l*Math.sin(z-.45));line(x2,y2,x2-l*Math.cos(z+.45),y2-l*Math.sin(z+.45))}
+function base(){ctx.clearRect(0,0,S,S);ctx.fillStyle='#fff';ctx.fillRect(0,0,S,S);ctx.strokeStyle='#d6dbe3';ctx.lineWidth=1;for(let i=min;i<=max;i++){line(X(i),pad,X(i),S-pad);line(pad,Y(i),S-pad,Y(i))}ctx.strokeStyle='#111';ctx.lineWidth=2;arrow(pad,center,S-pad+14,center);arrow(center,S-pad,center,pad-14);ctx.fillStyle='#111';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';for(let i=min;i<=max;i++)if(i)ctx.fillText(i,X(i),center+6);ctx.textAlign='left';ctx.textBaseline='middle';for(let i=min;i<=max;i++)if(i)ctx.fillText(i,center+7,Y(i));ctx.fillText('O',center+7,center+15);ctx.font='bold 18px sans-serif';ctx.fillText('X',S-pad+24,center-15);ctx.fillText('Y',center+13,pad-25)}
+function clip(A,B){const dx=B.x-A.x,dy=B.y-A.y,c=[];if(dx===0)return A.x>=min&&A.x<=max?[{x:A.x,y:min},{x:A.x,y:max}]:null;c.push({x:min,y:A.y+(min-A.x)*dy/dx},{x:max,y:A.y+(max-A.x)*dy/dx});if(dy!==0)c.push({x:A.x+(min-A.y)*dx/dy,y:min},{x:A.x+(max-A.y)*dx/dy,y:max});const inside=[];for(const P of c){if(P.x>=min-1e-8&&P.x<=max+1e-8&&P.y>=min-1e-8&&P.y<=max+1e-8&&!inside.some(Q=>Math.abs(Q.x-P.x)<1e-7&&Math.abs(Q.y-P.y)<1e-7))inside.push(P)}return inside.length>=2?[inside[0],inside[1]]:null}
+function infinite(A,B,color,dash=[]){const e=clip(A,B);if(!e)return;ctx.save();ctx.strokeStyle=color;ctx.lineWidth=4;ctx.setLineDash(dash);line(X(e[0].x),Y(e[0].y),X(e[1].x),Y(e[1].y));ctx.restore()}
+function isCorrect(){return userPoints&&userPoints.every(P=>P.y===a*P.x+b)}
+function drawPoint(P,color,label){ctx.save();ctx.fillStyle=color;ctx.beginPath();ctx.arc(X(P.x),Y(P.y),7,0,Math.PI*2);ctx.fill();ctx.font='bold 16px sans-serif';ctx.fillText(label,X(P.x)+9,Y(P.y)-8);ctx.restore()}
+function draw(){base();if(showAnswer)infinite({x:min,y:a*min+b},{x:max,y:a*max+b},'#16a34a',[10,6]);if(userPoints){infinite(userPoints[0],userPoints[1],isCorrect()?'#15803d':'#dc2626');drawPoint(userPoints[0],'#2563eb','A');drawPoint(userPoints[1],'#7c3aed','B')}}
+function formulaText(){let s='y = ';s+=a===1?'x':a===-1?'−x':(a<0?'−'+(-a):a)+'x';if(b>0)s+=' + '+b;else if(b<0)s+=' − '+(-b);return s}
+function now(){return elapsed+(running?performance.now()-since:0)}
+function renderTime(){document.getElementById('time').textContent=(now()/1000).toFixed(1)}
+function startClock(){if(!running&&!finished){since=performance.now();running=true;paused.classList.add('hidden')}}
+function stopClock(){if(running){elapsed+=performance.now()-since;running=false;renderTime();paused.classList.remove('hidden')}}
+function resetClock(){elapsed=0;since=performance.now();running=true;paused.classList.add('hidden');renderTime()}
+function newQuestion(){do a=Math.floor(Math.random()*9)-4;while(a===0);b=Math.floor(Math.random()*15)-7;formula.textContent=formulaText();locked=false;showAnswer=false;userPoints=null;feedback.textContent='';feedback.className='';next.classList.add('hidden');judge.classList.remove('hidden');selects.forEach(s=>{s.value='0';s.disabled=false});draw()}
+function explain(P){const correctY=a*P.x+b;return`${P.y===correctY?'○':'×'}（${P.x}，${P.y}）：y＝${a}×${P.x}${b>=0?'＋'+b:'−'+(-b)}＝${correctY}`}
+judge.onclick=()=>{if(locked||finished)return;const A={x:+x1.value,y:+y1.value},B={x:+x2.value,y:+y2.value};if(A.x===B.x&&A.y===B.y){feedback.className='ng';feedback.innerHTML='<b>同じ点が2つ選ばれています。</b><br>異なる2点を選ぼう！';return}userPoints=[A,B];locked=true;stopClock();if(isCorrect())score++;else showAnswer=true;draw();feedback.className=isCorrect()?'ok':'ng';feedback.innerHTML=isCorrect()?`<b>正解！</b><br>A、Bはどちらも ${formulaText()} の直線上にあります。`:`<b>不正解…</b><br>${explain(A)}<br>${explain(B)}<br><b>緑の点線が正しいグラフです。</b>`;document.getElementById('score').textContent=score;rate.textContent=(score/q*100).toFixed(1);selects.forEach(s=>s.disabled=true);judge.classList.add('hidden');q===N?finish():next.classList.remove('hidden')};
+next.onclick=()=>{q++;qn.textContent=q;startClock();newQuestion()};
+function finish(){finished=true;clearInterval(timer);paused.classList.add('hidden');const sec=now()/1000;let msg='';if(score===3)msg='全問正解！すごい！！';else if(score===2)msg='おしい！あとひといき！';else if(score===1)msg='1つできたら全部できるハズ！';else msg='もう一度ルールを見直してみよう！';if(score===3&&sec<20)msg+='<br>はやい，はやすぎる……！君が1次関数スピードマスターだ……。';else if(score===3&&sec<30)msg+='<br>疾風迅雷の1次関数マスター！';result.innerHTML=`<b>結果</b><br>3問中 ${score}問正解<br>正答率 ${(score/3*100).toFixed(1)}%<br>解答時間 ${sec.toFixed(1)}秒<br><br><b>${msg}</b>`;result.classList.remove('hidden');retry.classList.remove('hidden')}
+function start(){q=1;score=0;finished=false;qn.textContent='1';document.getElementById('score').textContent='0';rate.textContent='0.0';result.classList.add('hidden');retry.classList.add('hidden');clearInterval(timer);resetClock();timer=setInterval(renderTime,100);newQuestion()}
+retry.onclick=start;start();
+})();
+</script>
+</body></html>
