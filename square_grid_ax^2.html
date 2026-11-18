@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>y=ax² グラフチャレンジ 正方格子版</title>
+<title>y=ax² グラフチャレンジ 正方格子版 Ver.4</title>
 <style>
 :root{--blue:#2563eb;--green:#15803d;--red:#dc2626;--purple:#7c3aed;--ink:#172033}
 *{box-sizing:border-box}
@@ -23,7 +23,7 @@ canvas{display:block;width:min(100%,620px);height:auto;margin:auto;border:2px so
 <canvas id="graph" width="620" height="2368" aria-label="xはマイナス3から3、yはマイナス13から13の座標平面"></canvas>
 <button id="next" class="next hidden" type="button">次の問題へ</button>
 <div id="feedback" aria-live="polite"></div>
-<div class="stats">問題 <span id="qn">1</span>/5 ｜ 正解数 <span id="score">0</span> ｜ 正答率 <span id="rate">0.0</span>% ｜ 時間 <span id="time">0.0</span>秒 <span id="paused" class="paused hidden">（停止中）</span></div>
+<div class="stats">問題 <span id="qn">1</span>/3 ｜ 正解数 <span id="score">0</span> ｜ 正答率 <span id="rate">0.0</span>% ｜ 時間 <span id="time">0.0</span>秒 <span id="paused" class="paused hidden">（停止中）</span></div>
 <div class="guide">放物線上の異なる5点をタップしよう。A〜Dは同じ点を再タップすると取り消せます。点Eを選ぶと自動判定します。</div>
 <div id="selected" class="selected">1点目の点Aをタップしてください。</div>
 <div class="legend">選択した点：正しければ緑、誤りなら赤 ／ 正しい放物線：緑の曲線</div>
@@ -33,7 +33,7 @@ canvas{display:block;width:min(100%,620px);height:auto;margin:auto;border:2px so
 <script>
 (()=>{'use strict';
 const cv=document.getElementById('graph'),ctx=cv.getContext('2d');
-const N=5,xMin=-3,xMax=3,yMin=-13,yMax=13,W=620,left=62,right=42,top=42,bottom=42;
+const N=3,xMin=-3,xMax=3,yMin=-13,yMax=13,W=620,left=62,right=42,top=42,bottom=42;
 const plotW=W-left-right,unit=plotW/(xMax-xMin),H=top+(yMax-yMin)*unit+bottom,plotH=H-top-bottom,xStep=unit,yStep=unit;
 cv.width=W;cv.height=H;
 let coef=1,q=1,score=0,points=[],locked=false,finished=false,showCurve=false;
@@ -61,8 +61,8 @@ function chosenText(){if(!points.length)return'1点目の点Aをタップして�
 function good(P){return P.y===coef*P.x*P.x}function explain(P,i){const value=coef*P.x*P.x;return`${good(P)?'○':'×'} ${String.fromCharCode(65+i)}（${P.x}，${P.y}）：y＝${coef}×${P.x}²＝${value}`}
 function judge(){locked=true;showCurve=true;stopClock();const all=points.every(good);if(all)score++;draw();feedback.className=all?'ok':'ng';feedback.innerHTML=all?`<b>正解！</b><br>選んだ5点はすべて ${formula()} のグラフ上にあります。<br>緑色の曲線が正しい放物線です。`:`<b>不正解…</b><br>${points.map(explain).join('<br>')}<br><b>緑色の曲線が正しい放物線です。</b>`;document.getElementById('score').textContent=score;rate.textContent=(score/q*100).toFixed(1);selected.textContent=points.map((P,i)=>String.fromCharCode(65+i)+'（'+P.x+'，'+P.y+'）').join('、')+' で判定しました。';q===N?finish():next.classList.remove('hidden')}
 cv.addEventListener('pointerdown',e=>{if(locked||finished)return;const P=grid(e);if(!P)return;const idx=points.findIndex(Q=>Q.x===P.x&&Q.y===P.y);if(idx>=0){points.splice(idx,1);selected.textContent=chosenText();draw();return}if(points.length<5){points.push(P);selected.textContent=chosenText();draw();if(points.length===5)judge()}});
-next.onclick=()=>{q++;qn.textContent=q;startClock();newQ()};
-function finish(){finished=true;clearInterval(timer);paused.classList.add('hidden');const sec=now()/1000;let msg='';if(score===5)msg='全問正解！放物線を完全にとらえた！';else if(score===4)msg='おしい！あとひといき！';else if(score>=2)msg='もっといける！左右対称を意識しよう！';else if(score===1)msg='1つできたら全部できるハズ！';else msg='まずは頂点と左右対称な点を確認しよう！';result.innerHTML=`<b>結果</b><br>5問中 ${score}問正解<br>正答率 ${(score/5*100).toFixed(1)}%<br>解答時間 ${sec.toFixed(1)}秒<br><br><b>${msg}</b>`;result.classList.remove('hidden');retry.classList.remove('hidden')}
+next.onclick=()=>{q++;qn.textContent=q;startClock();newQ();window.scrollTo({top:0,behavior:'smooth'})};
+function finish(){finished=true;clearInterval(timer);paused.classList.add('hidden');const sec=now()/1000;let msg='';if(score===3)msg='全問正解！放物線を完全にとらえた！';else if(score===2)msg='おしい！あとひといき！';else if(score===1)msg='1つできたら全部できるハズ！';else msg='まずは頂点と左右対称な点を確認しよう！';if(score===3&&sec<20)msg+='<br>はやい，はやすぎる……！君が放物線スピードマスターだ……。';else if(score===3&&sec<30)msg+='<br>疾風迅雷の放物線マスター！';result.innerHTML=`<b>結果</b><br>3問中 ${score}問正解<br>正答率 ${(score/3*100).toFixed(1)}%<br>解答時間 ${sec.toFixed(1)}秒<br><br><b>${msg}</b>`;result.classList.remove('hidden');retry.classList.remove('hidden')}
 function start(){q=1;score=0;finished=false;qn.textContent='1';document.getElementById('score').textContent='0';rate.textContent='0.0';result.classList.add('hidden');retry.classList.add('hidden');clearInterval(timer);resetClock();timer=setInterval(render,100);newQ()}retry.onclick=start;start();
 })();
 </script></body></html>
