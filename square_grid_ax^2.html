@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>y=ax² グラフチャレンジ 正方格子版</title>
+<style>
+:root{--blue:#2563eb;--green:#15803d;--red:#dc2626;--purple:#7c3aed;--ink:#172033}
+*{box-sizing:border-box}
+body{margin:0;padding:8px;background:#eef3f8;font-family:Meiryo,"Hiragino Kaku Gothic ProN",sans-serif;text-align:center;color:var(--ink)}
+main{max-width:780px;margin:auto;background:#fff;padding:12px;border-radius:18px;box-shadow:0 8px 28px #1720331c}
+h1{font-size:clamp(23px,5vw,35px);margin:4px}.problem{font-size:clamp(21px,5vw,30px);font-weight:bold;margin:8px}.formula{color:var(--blue);font-size:1.25em}
+canvas{display:block;width:min(100%,620px);height:auto;margin:auto;border:2px solid #222;border-radius:8px;background:#fff;touch-action:none}
+.next,.retry{font-size:18px;color:#fff;background:var(--purple);font-weight:bold;border:0;border-radius:9px;padding:10px 19px;margin:8px 4px 2px}.retry{background:var(--green)}
+#feedback{max-width:680px;min-height:95px;margin:10px auto;padding:11px;border-radius:12px;line-height:1.55}.ok{background:#ecfdf5;color:#166534;border:1px solid #86efac}.ng{background:#fff1f2;color:#9f1239;border:1px solid #fda4af}
+.stats{margin:10px}.paused{color:var(--purple);font-weight:bold}.guide{margin:8px auto;font-size:16px}.selected{max-width:680px;margin:8px auto;padding:9px;min-height:58px;background:#f7f9fc;border:1px solid #cbd5e1;border-radius:12px;line-height:1.55}.legend{font-size:14px;color:#64748b}.result{max-width:650px;margin:14px auto;padding:16px;background:#f0f9ff;border:2px solid #7dd3fc;border-radius:14px;font-size:20px;line-height:1.65}.hidden{display:none!important}
+@media(max-width:560px){body{padding:4px}main{padding:7px}.guide,.stats{font-size:14px}#feedback{font-size:14px}.selected{font-size:14px}}
+</style>
+</head>
+<body><main>
+<h1>y=ax² グラフチャレンジ</h1>
+<div class="problem">次の関数のグラフをかこう！<br><span id="formula" class="formula"></span></div>
+<canvas id="graph" width="620" height="2368" aria-label="xはマイナス3から3、yはマイナス13から13の座標平面"></canvas>
+<button id="next" class="next hidden" type="button">次の問題へ</button>
+<div id="feedback" aria-live="polite"></div>
+<div class="stats">問題 <span id="qn">1</span>/5 ｜ 正解数 <span id="score">0</span> ｜ 正答率 <span id="rate">0.0</span>% ｜ 時間 <span id="time">0.0</span>秒 <span id="paused" class="paused hidden">（停止中）</span></div>
+<div class="guide">放物線上の異なる5点をタップしよう。A〜Dは同じ点を再タップすると取り消せます。点Eを選ぶと自動判定します。</div>
+<div id="selected" class="selected">1点目の点Aをタップしてください。</div>
+<div class="legend">選択した点：正しければ緑、誤りなら赤 ／ 正しい放物線：緑の曲線</div>
+<div id="result" class="result hidden"></div>
+<button id="retry" class="retry hidden" type="button">もう一度挑戦</button>
+</main>
+<script>
+(()=>{'use strict';
+const cv=document.getElementById('graph'),ctx=cv.getContext('2d');
+const N=5,xMin=-3,xMax=3,yMin=-13,yMax=13,W=620,left=62,right=42,top=42,bottom=42;
+const plotW=W-left-right,unit=plotW/(xMax-xMin),H=top+(yMax-yMin)*unit+bottom,plotH=H-top-bottom,xStep=unit,yStep=unit;
+cv.width=W;cv.height=H;
+let coef=1,q=1,score=0,points=[],locked=false,finished=false,showCurve=false;
+let elapsed=0,since=0,running=false,timer=null;
+const X=x=>left+(x-xMin)*unit,Y=y=>top+(yMax-y)*unit;
+function line(x1,y1,x2,y2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function arrow(x1,y1,x2,y2){line(x1,y1,x2,y2);const a=Math.atan2(y2-y1,x2-x1),l=11;line(x2,y2,x2-l*Math.cos(a-.45),y2-l*Math.sin(a-.45));line(x2,y2,x2-l*Math.cos(a+.45),y2-l*Math.sin(a+.45))}
+function base(){
+ ctx.clearRect(0,0,W,H);ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#d5dae2';ctx.lineWidth=1;
+ for(let x=xMin;x<=xMax;x++)line(X(x),top,X(x),H-bottom);
+ for(let y=yMin;y<=yMax;y++)line(left,Y(y),W-right,Y(y));
+ ctx.strokeStyle='#111827';ctx.lineWidth=2.3;arrow(left,Y(0),W-right+15,Y(0));arrow(X(0),H-bottom,X(0),top-15);
+ ctx.fillStyle='#111827';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';for(let x=xMin;x<=xMax;x++)if(x!==0)ctx.fillText(x,X(x),Y(0)+6);
+ ctx.textAlign='left';ctx.textBaseline='middle';for(let y=yMin;y<=yMax;y++)if(y!==0)ctx.fillText(y,X(0)+7,Y(y));
+ ctx.fillText('O',X(0)+7,Y(0)+15);ctx.font='bold 18px sans-serif';ctx.fillText('X',W-right+24,Y(0)-14);ctx.fillText('Y',X(0)+13,top-22);
+}
+function parabola(){ctx.save();ctx.strokeStyle='#15803d';ctx.lineWidth=4;ctx.beginPath();let started=false;for(let px=0;px<=plotW;px+=1){const x=xMin+px/plotW*(xMax-xMin),y=coef*x*x;if(y<yMin-.5||y>yMax+.5){started=false;continue}const cx=X(x),cy=Y(y);if(!started){ctx.moveTo(cx,cy);started=true}else ctx.lineTo(cx,cy)}ctx.stroke();ctx.restore()}
+function point(P,i){const good=P.y===coef*P.x*P.x,colour=locked?(good?'#15803d':'#dc2626'):'#2563eb';ctx.save();ctx.fillStyle=colour;ctx.beginPath();ctx.arc(X(P.x),Y(P.y),8,0,Math.PI*2);ctx.fill();ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.textBaseline='bottom';const text=String.fromCharCode(65+i)+'（'+P.x+'，'+P.y+'）';let tx=X(P.x)+10,ty=Y(P.y)-7,w=ctx.measureText(text).width;if(tx+w>W-4)tx=X(P.x)-w-10;if(ty<18)ty=Y(P.y)+25;ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.strokeText(text,tx,ty);ctx.fillStyle=colour;ctx.fillText(text,tx,ty);ctx.restore()}
+function draw(){base();if(showCurve)parabola();points.forEach(point)}
+function formula(){return 'y = '+(coef===1?'x²':coef===-1?'−x²':coef+'x²')}
+function now(){return elapsed+(running?performance.now()-since:0)}function render(){time.textContent=(now()/1000).toFixed(1)}function startClock(){if(!running&&!finished){since=performance.now();running=true;paused.classList.add('hidden')}}function stopClock(){if(running){elapsed+=performance.now()-since;running=false;render();paused.classList.remove('hidden')}}function resetClock(){elapsed=0;since=performance.now();running=true;paused.classList.add('hidden');render()}
+function newQ(){do coef=Math.floor(Math.random()*7)-3;while(coef===0);document.getElementById('formula').textContent=formula();points=[];locked=false;showCurve=false;selected.textContent='1点目の点Aをタップしてください。';feedback.textContent='';feedback.className='';next.classList.add('hidden');draw()}
+function grid(e){const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*H/r.height;if(px<left-unit/2||px>W-right+unit/2||py<top-unit/2||py>H-bottom+unit/2)return null;return{x:Math.max(xMin,Math.min(xMax,Math.round(xMin+(px-left)/unit))),y:Math.max(yMin,Math.min(yMax,Math.round(yMax-(py-top)/unit)))}}
+function chosenText(){if(!points.length)return'1点目の点Aをタップしてください。';const names=points.map((P,i)=>String.fromCharCode(65+i)+'（'+P.x+'，'+P.y+'）').join('、');return names+' を選択中。'+(points.length<5?'次に点'+String.fromCharCode(65+points.length)+'をタップしてください。':'')}
+function good(P){return P.y===coef*P.x*P.x}function explain(P,i){const value=coef*P.x*P.x;return`${good(P)?'○':'×'} ${String.fromCharCode(65+i)}（${P.x}，${P.y}）：y＝${coef}×${P.x}²＝${value}`}
+function judge(){locked=true;showCurve=true;stopClock();const all=points.every(good);if(all)score++;draw();feedback.className=all?'ok':'ng';feedback.innerHTML=all?`<b>正解！</b><br>選んだ5点はすべて ${formula()} のグラフ上にあります。<br>緑色の曲線が正しい放物線です。`:`<b>不正解…</b><br>${points.map(explain).join('<br>')}<br><b>緑色の曲線が正しい放物線です。</b>`;document.getElementById('score').textContent=score;rate.textContent=(score/q*100).toFixed(1);selected.textContent=points.map((P,i)=>String.fromCharCode(65+i)+'（'+P.x+'，'+P.y+'）').join('、')+' で判定しました。';q===N?finish():next.classList.remove('hidden')}
+cv.addEventListener('pointerdown',e=>{if(locked||finished)return;const P=grid(e);if(!P)return;const idx=points.findIndex(Q=>Q.x===P.x&&Q.y===P.y);if(idx>=0){points.splice(idx,1);selected.textContent=chosenText();draw();return}if(points.length<5){points.push(P);selected.textContent=chosenText();draw();if(points.length===5)judge()}});
+next.onclick=()=>{q++;qn.textContent=q;startClock();newQ()};
+function finish(){finished=true;clearInterval(timer);paused.classList.add('hidden');const sec=now()/1000;let msg='';if(score===5)msg='全問正解！放物線を完全にとらえた！';else if(score===4)msg='おしい！あとひといき！';else if(score>=2)msg='もっといける！左右対称を意識しよう！';else if(score===1)msg='1つできたら全部できるハズ！';else msg='まずは頂点と左右対称な点を確認しよう！';result.innerHTML=`<b>結果</b><br>5問中 ${score}問正解<br>正答率 ${(score/5*100).toFixed(1)}%<br>解答時間 ${sec.toFixed(1)}秒<br><br><b>${msg}</b>`;result.classList.remove('hidden');retry.classList.remove('hidden')}
+function start(){q=1;score=0;finished=false;qn.textContent='1';document.getElementById('score').textContent='0';rate.textContent='0.0';result.classList.add('hidden');retry.classList.add('hidden');clearInterval(timer);resetClock();timer=setInterval(render,100);newQ()}retry.onclick=start;start();
+})();
+</script></body></html>
