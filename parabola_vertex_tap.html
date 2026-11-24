@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>y=a(x-p)²+q 頂点タップチャレンジ</title>
+<style>
+:root{--blue:#2563eb;--green:#15803d;--red:#dc2626;--purple:#7c3aed;--ink:#172033;--bg:#eef3f8}
+*{box-sizing:border-box}
+body{margin:0;padding:8px;background:var(--bg);font-family:Meiryo,"Hiragino Kaku Gothic ProN",sans-serif;text-align:center;color:var(--ink)}
+main{max-width:780px;margin:auto;background:#fff;padding:13px;border-radius:18px;box-shadow:0 8px 28px #1720331c}
+h1{font-size:clamp(22px,5vw,35px);margin:4px}.problem{font-size:clamp(20px,5vw,29px);font-weight:bold;margin:8px}.formula{color:var(--blue);font-size:1.25em}
+canvas{display:block;width:min(100%,620px);height:auto;margin:auto;border:2px solid #222;border-radius:8px;background:#fff;touch-action:none;cursor:crosshair}
+button,.portal{display:inline-block;font-size:18px;color:#fff;background:var(--purple);font-weight:bold;border:0;border-radius:9px;padding:10px 20px;margin:8px;text-decoration:none;cursor:pointer}.retry{background:var(--green)}.portal{background:#2563eb;margin-top:20px}.portal:hover{background:#1d4ed8}.hidden{display:none!important}
+#feedback{max-width:680px;min-height:92px;margin:10px auto;padding:11px;border-radius:12px;line-height:1.6}.ok{background:#ecfdf5;color:#166534;border:1px solid #86efac}.ng{background:#fff1f2;color:#9f1239;border:1px solid #fda4af}
+.stats{margin:10px}.paused{color:var(--purple);font-weight:bold}.guide{font-size:15px;color:#475569;margin:8px}.selected{max-width:680px;margin:8px auto;padding:9px;min-height:52px;background:#f7f9fc;border:1px solid #cbd5e1;border-radius:12px}.legend{font-size:14px;color:#64748b}.result{max-width:650px;margin:14px auto;padding:16px;background:#f0f9ff;border:2px solid #7dd3fc;border-radius:14px;font-size:20px;line-height:1.65}
+@media(max-width:560px){body{padding:4px}main{padding:7px}.guide,.stats,#feedback,.selected{font-size:14px}}
+</style>
+</head>
+<body><main>
+<h1>y=a(x-p)²+q 平行移動した頂点を当てろ！ゲーム</h1>
+<div class="problem">移動後の頂点をタップしよう！<br><span id="formula" class="formula"></span></div>
+<canvas id="graph" width="620" height="620" aria-label="マイナス6から6までの座標平面"></canvas>
+<button id="next" class="hidden" type="button">次の問題へ</button>
+<div id="feedback" aria-live="polite"></div>
+<div class="stats">問題 <span id="qn">1</span>/5 ｜ 正解数 <span id="score">0</span> ｜ 正答率 <span id="rate">0.0</span>% ｜ 時間 <span id="time">0.0</span>秒 <span id="paused" class="paused hidden">（停止中）</span></div>
+<div class="guide">青い点線は移動前の y=ax² です。移動後の頂点を1つタップしよう。</div>
+<div id="selected" class="selected">格子点を1つタップしてください。</div>
+<div class="legend">青い点線：移動前 ／ 緑の曲線：移動後の正しいグラフ</div>
+<div id="result" class="result hidden"></div>
+<button id="retry" class="retry hidden" type="button">もう一度挑戦</button>
+<br>
+<a class="portal" href="https://mathmachine0725.github.io/Math_portal/index.html">← ポータルサイトへ戻る</a>
+</main>
+<script>
+(()=>{'use strict';
+const cv=document.getElementById('graph'),ctx=cv.getContext('2d');
+const TOTAL=5,MIN=-6,MAX=6,S=620,PAD=55,UNIT=(S-PAD*2)/(MAX-MIN);
+let a=1,p=1,q=1,question=1,score=0,chosen=null,locked=false,finished=false,showMoved=false;
+let elapsed=0,since=0,running=false,timer=null,lastKey='';
+const X=x=>PAD+(x-MIN)*UNIT,Y=y=>PAD+(MAX-y)*UNIT;
+function line(x1,y1,x2,y2){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function arrow(x1,y1,x2,y2){line(x1,y1,x2,y2);const z=Math.atan2(y2-y1,x2-x1),l=11;line(x2,y2,x2-l*Math.cos(z-.45),y2-l*Math.sin(z-.45));line(x2,y2,x2-l*Math.cos(z+.45),y2-l*Math.sin(z+.45))}
+function base(){ctx.clearRect(0,0,S,S);ctx.fillStyle='#fff';ctx.fillRect(0,0,S,S);ctx.strokeStyle='#d5dae2';ctx.lineWidth=1;for(let i=MIN;i<=MAX;i++){line(X(i),PAD,X(i),S-PAD);line(PAD,Y(i),S-PAD,Y(i))}ctx.strokeStyle='#111827';ctx.lineWidth=2.2;arrow(PAD,Y(0),S-PAD+15,Y(0));arrow(X(0),S-PAD,X(0),PAD-15);ctx.fillStyle='#111827';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';for(let i=MIN;i<=MAX;i++)if(i)ctx.fillText(i,X(i),Y(0)+6);ctx.textAlign='left';ctx.textBaseline='middle';for(let i=MIN;i<=MAX;i++)if(i)ctx.fillText(i,X(0)+7,Y(i));ctx.fillText('O',X(0)+7,Y(0)+15);ctx.font='bold 18px sans-serif';ctx.fillText('X',S-PAD+24,Y(0)-14);ctx.fillText('Y',X(0)+13,PAD-24)}
+function parabola(shiftX,shiftY,color,dash=[]){ctx.save();ctx.strokeStyle=color;ctx.lineWidth=3.5;ctx.setLineDash(dash);ctx.beginPath();let on=false;const plot=S-PAD*2;for(let px=0;px<=plot;px++){const x=MIN+px/plot*(MAX-MIN),y=a*(x-shiftX)*(x-shiftX)+shiftY;if(y<MIN-.3||y>MAX+.3){on=false;continue}if(!on){ctx.moveTo(X(x),Y(y));on=true}else ctx.lineTo(X(x),Y(y))}ctx.stroke();ctx.restore()}
+function point(x,y,color,label){ctx.save();ctx.fillStyle=color;ctx.beginPath();ctx.arc(X(x),Y(y),9,0,Math.PI*2);ctx.fill();ctx.font='bold 15px sans-serif';ctx.textAlign='left';ctx.textBaseline='bottom';const text=label+'（'+x+'，'+y+'）';let tx=X(x)+11,ty=Y(y)-8,w=ctx.measureText(text).width;if(tx+w>S-5)tx=X(x)-w-11;if(ty<18)ty=Y(y)+27;ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.strokeText(text,tx,ty);ctx.fillStyle=color;ctx.fillText(text,tx,ty);ctx.restore()}
+function draw(){base();parabola(0,0,'#2563eb',[9,6]);if(showMoved)parabola(p,q,'#15803d');if(chosen)point(chosen.x,chosen.y,chosen.x===p&&chosen.y===q?'#15803d':'#dc2626','P');if(locked&&chosen&&(chosen.x!==p||chosen.y!==q))point(p,q,'#15803d','正解')}
+function fmtFormula(){let s='y = ';s+=a===1?'':a===-1?'−':(a<0?'−'+(-a):a);if(p===0)s+='x²';else s+='(x'+(p>0?' − ':' + ')+Math.abs(p)+')²';if(q>0)s+=' + '+q;else if(q<0)s+=' − '+Math.abs(q);return s}
+function baseFormula(){let s='y = ';s+=a===1?'x²':a===-1?'−x²':(a<0?'−'+(-a):a)+'x²';return s}
+function now(){return elapsed+(running?performance.now()-since:0)}function render(){time.textContent=(now()/1000).toFixed(1)}function startClock(){if(!running&&!finished){since=performance.now();running=true;paused.classList.add('hidden')}}function stopClock(){if(running){elapsed+=performance.now()-since;running=false;render();paused.classList.remove('hidden')}}function resetClock(){elapsed=0;since=performance.now();running=true;paused.classList.add('hidden');render()}
+function newQuestion(){let key;do{a=Math.floor(Math.random()*7)-3;p=Math.floor(Math.random()*11)-5;q=Math.floor(Math.random()*11)-5;key=[a,p,q].join(':')}while(a===0||(p===0&&q===0)||key===lastKey);lastKey=key;formula.textContent=fmtFormula();document.querySelector('.guide').textContent=`青い点線は移動前の ${baseFormula()} です。移動後の頂点を1つタップしよう。`;chosen=null;locked=false;showMoved=false;selected.textContent='格子点を1つタップしてください。';feedback.textContent='';feedback.className='';next.classList.add('hidden');draw()}
+function grid(e){const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*S/r.width,py=(e.clientY-r.top)*S/r.height;if(px<PAD-UNIT/2||px>S-PAD+UNIT/2||py<PAD-UNIT/2||py>S-PAD+UNIT/2)return null;return{x:Math.max(MIN,Math.min(MAX,Math.round(MIN+(px-PAD)/UNIT))),y:Math.max(MIN,Math.min(MAX,Math.round(MAX-(py-PAD)/UNIT)))}}
+function explanation(P){const xRight=P.x===p,yRight=P.y===q,parts=[];if(xRight&&!yRight)parts.push('<b>おしい！頂点のx座標は合っています！</b>');if(!xRight&&yRight)parts.push('<b>おしい！頂点のy座標は合っています！</b>');if(!xRight){if(p===0)parts.push('xの部分は x² なので、頂点のx座標は0です。');else parts.push(`${p>0?'x − '+p:'x + '+(-p)} なので、頂点のx座標は ${p} です。`)}if(!yRight)parts.push(`式の最後が ${q>=0?'＋'+q:'−'+(-q)} なので、頂点のy座標は ${q} です。`);parts.push(`したがって、頂点は（${p}，${q}）です。`);return parts.join('<br>')}
+function judge(P){locked=true;chosen=P;showMoved=true;stopClock();const ok=P.x===p&&P.y===q;if(ok)score++;draw();feedback.className=ok?'ok':'ng';feedback.innerHTML=ok?`<b>正解！</b><br>y＝a(x−p)²＋q の頂点は（p，q）です。<br>今回の頂点は（${p}，${q}）です。`:`<b>不正解…</b><br>タップした点は P（${P.x}，${P.y}）です。<br>${explanation(P)}`;selected.textContent=`タップした点：P（${P.x}，${P.y}）`;document.getElementById('score').textContent=score;rate.textContent=(score/question*100).toFixed(1);question===TOTAL?finish():next.classList.remove('hidden')}
+cv.addEventListener('pointerdown',e=>{if(locked||finished)return;const P=grid(e);if(P)judge(P)});
+next.onclick=()=>{question++;qn.textContent=question;startClock();newQuestion();window.scrollTo({top:0,behavior:'smooth'})};
+function finish(){finished=true;clearInterval(timer);paused.classList.add('hidden');const sec=now()/1000;let msg=score===5?'全問正解！平行移動はカンペキ！！':score===4?'おしい！あとひといき！':score>=2?'もっといける！pとqを確認しよう！':score===1?'1つできたら全部できるハズ！':'まずは頂点（p，q）を確認しよう！';if(score===5&&sec<15)msg+='<br>速きこと，風のごとし……！精密迅速！';else if(score===5&&sec<25)msg+='<br>疾風怒濤の平行移動マスター！';result.innerHTML=`<b>結果</b><br>5問中 ${score}問正解<br>正答率 ${(score/5*100).toFixed(1)}%<br>解答時間 ${sec.toFixed(1)}秒<br><br><b>${msg}</b>`;result.classList.remove('hidden');retry.classList.remove('hidden')}
+function start(){question=1;score=0;finished=false;lastKey='';qn.textContent='1';document.getElementById('score').textContent='0';rate.textContent='0.0';result.classList.add('hidden');retry.classList.add('hidden');clearInterval(timer);resetClock();timer=setInterval(render,100);newQuestion();window.scrollTo({top:0})}
+retry.onclick=start;start();
+})();
+</script>
+</body>
+</html>
